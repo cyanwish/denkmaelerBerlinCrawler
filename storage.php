@@ -1,14 +1,19 @@
 <?php
 
 /**
- * db class 
+ *  This class provides functions for connecting with a database by using PDO.
  */
 
 class Storage {
     
     private $connection;
     
+    /**
+     *  The constructor of the class.
+     */
+    
     public function __construct() {
+      // insert your own credentials here
       $db_host = 'localhost';
       $db_name = 'denkmaelerBerlin';
       $db_user = 'root';
@@ -22,9 +27,20 @@ class Storage {
       }
     }
     
+    /**
+     *  The destructor of the class. 
+     */
+    
     public function __destruct() {
         $this->connection = null;
     }
+    
+    /**
+     *  The function inserts the given data into the db.
+     * 
+     *  @param       $data   the data
+     *  @return      bool    true (success) or false (error)
+     */
     
     public function saveObject($data) {
         $sql = 'INSERT INTO objects (name, objektNr, bezirk, ortsteil, strasse, '

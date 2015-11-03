@@ -3,19 +3,28 @@
 require 'downloader.php';
 
 /**
- * crawler class
+ * This class provides the specific functions for crawling data in .txt's and html
+ * from http://www.stadtentwicklung.berlin.de/denkmal/liste_karte_datenbank/de/denkmaldatenbank/index.shtml .
  */
 
 class Crawler {
     
     private $downloader;
     
+    /**
+     *  The constructor of the class.
+     */
+    
     public function __construct() {
         $this->downloader = new Downloader();
     }
     
+    /**
+     *  The destructor of the class. 
+     */
+    
     public function __destruct() {
-      $this->downloader = null;
+        $this->downloader = null;
     }
     
     /**
@@ -45,6 +54,15 @@ class Crawler {
         return $data;
     }
     
+    /**
+     *  The function crawls for the link of the detailed page of the given
+     *  object-id.
+     *  
+     *  @param      $id     the object-id
+     * 
+     *  @return string      the URL from the detail-page of the given object-id
+     */
+    
     function getDetailLink($id) {
         $html = $this->downloader->download('http://www.stadtentwicklung.berlin.de/denkmal/liste_karte_datenbank/de/denkmaldatenbank/suchresultat.php?objekt=' . $id);
         $dom = new DOMDocument;
@@ -61,12 +79,12 @@ class Crawler {
     }
 
     /**
-    * The functions crawls for detail data with the given object-id.
+    *   The functions crawls for detail data with the given object-id.
     *
+    *   @param      $link   link of the detailpage from the object
     * 
-    * @param   $link   link of the detailpage from the object
-    * @return          either an array containing the details of the object or NULL
-    *                  (in case of errors)
+    *   @return     array   either an array containing the details of the object or NULL
+    *                       (in case of errors)
     */
 
     function getObjectData($link) {
@@ -115,14 +133,15 @@ class Crawler {
     }
     
     /**
-    * Helper-function for crawling an element with a specific class.
+    *   Helper-function for crawling an element with a specific class.
     * 
-    * @param $parentNode   given parent-node
-    * @param $tagName      the tagname
-    * @param $className    the classname 
+    *   @param $parentNode   given parent-node
+    *   @param $tagName      the tagname
+    *   @param $className    the classname 
     * 
-    * @return              the result-node
-    * http://stackoverflow.com/a/31616848
+    *   @return     array    the result-node
+    *  
+    *   Source: http://stackoverflow.com/a/31616848
     */
 
     function getElementsByClass(&$parentNode, $tagName, $className) {

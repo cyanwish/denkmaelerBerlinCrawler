@@ -4,6 +4,10 @@ require 'storage.php';
 require 'logging.php';
 require 'crawler.php';
 
+/**
+ *  /// The main file /// 
+ */
+
 $log = new Logging();
 $log->lfile('denkmaeler_log.txt'); 
 
