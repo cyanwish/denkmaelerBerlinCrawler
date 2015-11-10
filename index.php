@@ -28,12 +28,12 @@ $storage = new Storage();
 for ($i = 4000; $i < $length; $i++) { // 68,73
     $detailLink = $crawler->getDetailLink($objectIds[$i]);
     if ($detailLink == NULL) {
-        $log->lwrite($objectIds[$i] . '- Cant get the detail-link.');
+        $log->lwrite($objectIds[$i] . 'Crawler Error. Unable to get the detail-link.');
         sleep(1);
     } else {
         $object = $crawler->getObjectData($detailLink);
         if ($object == NULL) {
-            $log->lwrite($objectIds[$i] . '- Cant get the Object.');
+            $log->lwrite($objectIds[$i] . 'Crawler Error. Unable to get the object.');
             sleep(1);
         } else {
             $result = $storage->saveObject($object);
@@ -43,3 +43,5 @@ for ($i = 4000; $i < $length; $i++) { // 68,73
     }
 }
 $log->lclose();
+
+// TODO: picURL, Beschreibung, multiple Straßen fetchen
