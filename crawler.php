@@ -41,7 +41,7 @@ class Crawler {
     
         $file = fopen($filename, "r") or die("Unable to open file!");
         $data = array();
-        //$pattern = '/090[0-9]{5}/';
+        $pattern = '/090[0-9]{5}/';
         $i = 0;
         while(!feof($file)) {
             $line = fgets($file);
@@ -126,6 +126,37 @@ class Crawler {
                         $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                         $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
                     }
+                }
+            }
+        }
+        $denkmal_detail_img = $this->getElementsByClass($dom, 'div', 'denkmal_detail_img');
+        if ($denkmal_detail_img != NULL) {
+            $body_imgs = $denkmal_detail_img->getElementsByTagName('a');
+            for ($i = 0; $i < $body_imgs->length; $i++) {
+                $data['img'][$i] = $body_imgs[$i]->getAttribute('href');
+            }
+        }
+        
+        $denkmal_detail_text = $this->getElementsByClass($dom, 'div', 'denkmal_detail_text');
+        if ($denkmal_detail_text != NULL) {
+            $pattern = '';
+            $body_text = $denkmal_detail_text->getElementsByTagName('p');
+            $stop = new DOMElement('p', 'stop');
+            $hr = $denkmal_detail_text->getElementsByTagName('hr');
+        if ($hr != NULL) {
+            $hr->parentNode->replaceChild($stop, $hr);
+        }
+            for ($i = 0; $i < $body_text->length; $i++) {
+                
+                preg_match($pattern, $body_text[$i]->nodeValue, $matches);
+                if ($matches[0] != NULL) {
+                    $i = $body_text->length;
+                }
+                
+                if($body_text[$i]->nodeValue == 'stop'){
+                    $i = $body_text->length;
+                } else {
+                    $data['text'].append($body_text[$i]->nodeValue);
                 }
             }
         }
