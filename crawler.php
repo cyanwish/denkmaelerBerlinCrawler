@@ -127,12 +127,21 @@ class Crawler {
         $body = $dom->getElementsByTagName('table');
         $denkmal_detail_head = $body->item(1);
         $head_trs = $denkmal_detail_head->getElementsByTagName('tr');
-        for ($j = 0; $j < $head_trs->length; $j++) {
+        $firstAdr = TRUE;
+        for ($j = 0; $j < $head_trs->length; $j++){
             $td = $head_trs->item($j)->getElementsByTagName('td');
             for ($i = 0; $i < $td->length; $i++)
-            {
-                $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
-                $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+            {       
+                if($td->item(0)->nodeValue == 'Adresse'){
+                    if($firstAdr == TRUE){
+                        $firstAdr = FALSE;
+                        $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
+                        $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                    } // else nothing because we only take the first adress
+                } else { // every other data besides "address"
+                    $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
+                    $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                }
             }
         }
         return $data;
