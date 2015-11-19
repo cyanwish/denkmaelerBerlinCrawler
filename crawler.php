@@ -37,7 +37,7 @@ class Crawler {
     * @return               array of objectids
     */
 
-    function fetchObjectIds($filename, $pattern) {
+    public function fetchObjectIds($filename, $pattern) {
     
         $file = fopen($filename, "r") or die("Unable to open file!");
         $data = array();
@@ -63,7 +63,7 @@ class Crawler {
      *  @return string      the URL from the detail-page of the given object-id
      */
     
-    function getDetailLink($id) {
+    public function getDetailLink($id) {
         $html = $this->downloader->download('http://www.stadtentwicklung.berlin.de/denkmal/liste_karte_datenbank/de/denkmaldatenbank/suchresultat.php?objekt=' . $id);
         $dom = new DOMDocument;
         $dom->loadHTML($html);
@@ -87,7 +87,7 @@ class Crawler {
     *                       (in case of errors)
     */
 
-    function getObjectData($link) {
+    public function getObjectData($link) {
         $html = $this->downloader->download($link);
         echo $this->downloader->getStatusCode();
         $dom = new DOMDocument;
@@ -133,7 +133,7 @@ class Crawler {
         if ($denkmal_detail_img != NULL) {
             $body_imgs = $denkmal_detail_img->getElementsByTagName('a');
             for ($i = 0; $i < $body_imgs->length; $i++) {
-                $data['img'][$i] = $body_imgs[$i]->getAttribute('href');
+                $data['picture'][$i] = $body_imgs[$i]->getAttribute('href');
             }
         }
         
@@ -156,10 +156,11 @@ class Crawler {
                 if($body_text[$i]->nodeValue == 'stop'){
                     $i = $body_text->length;
                 } else {
-                    $data['text'].append($body_text[$i]->nodeValue);
+                    $data['descr'].append($body_text[$i]->nodeValue);
                 }
             }
         }
+        $data = $this->simplifyDataKeys($data); // issues ?
         return $data;
     }
     
@@ -175,7 +176,7 @@ class Crawler {
     *   Source: http://stackoverflow.com/a/31616848
     */
 
-    function getElementsByClass(&$parentNode, $tagName, $className) {
+    private function getElementsByClass(&$parentNode, $tagName, $className) {
         $nodes=array();
         $childNodeList = $parentNode->getElementsByTagName($tagName);
         for ($i = 0; $i < $childNodeList->length; $i++) {
@@ -185,6 +186,30 @@ class Crawler {
             }
         }
         return $nodes;
+    }
+    
+    /**
+     * The function simply renames the array-keys in proper style.
+     * 
+     * @param   array   $data       the given data
+     * @return  array   $newData    given data returned with renamed keys       
+     */
+    private function simplifyDataKeys($data){
+        $newData['name'] = $data["Name"];
+        $newData['obj_nr'] = $data["Obj.-Dok.-Nr."];
+        $newData['district'] = $data["Bezirk"];
+        $newData['sub_district'] = $data["Ortsteil"];
+        $newData['street'] = $data["Strasse"];
+        $newData['nr'] = $data["Hausnummer"];
+        $newData['type'] = $data["Denkmalart"];
+        $newData['monument_notion'] = $data["Sachbegriff"];
+        $newData['date'] = $data["Datierung"];
+        $newData['p_concept'] = $data["Entwurf"];
+        $newData['p_exec'] = $data["Ausführung"];
+        $newData['p_builder'] = $data["Bauherr"];
+        $newData['picture'] = $data['picture'];
+        $newData['descr'] = $data['descr'];
+        return $newData;
     }
     
 }
