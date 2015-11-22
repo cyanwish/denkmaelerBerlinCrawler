@@ -41,12 +41,12 @@ class Crawler {
     
         $file = fopen($filename, "r") or die("Unable to open file!");
         $data = array();
-        $pattern = '/090[0-9]{5}/';
+        //$pattern = '/090[0-9]{5}/';
         $i = 0;
         while(!feof($file)) {
             $line = fgets($file);
             preg_match($pattern, $line, $matches);
-            if ($matches[0] != NULL) {
+            if (@$matches[0] != NULL) {
                 $data[$i++] = $matches[0];
             }
         }
@@ -89,17 +89,26 @@ class Crawler {
 
     public function getObjectData($link) {
         $html = $this->downloader->download($link);
-        echo $this->downloader->getStatusCode();
         $dom = new DOMDocument;
         $dom->loadHTML($html);
-        $header = getHeaderData($dom);
-        $body = getBodydata($dom); 
-        $data = array_merge($data, array_merge($header, $body)); //issues ?
-        $data['name'] = $this->getName($dom);
-        $data['picture'] = $this->getPictureUrls($dom);
-        $data['descr'] = $this->getDescr($dom); 
-        $dataFinal = $this->simplifyDataKeys($data); // issues ?
-        return $dataFinal;
+        $header = $this->getHeaderData($dom);
+        $body = $this->getBodydata($dom); 
+        $data = array();
+        if ($header != NULL && $body != NULL) {
+            $data = array_merge($data, array_merge($header, $body));
+            $data['name'] = $this->getName($dom);
+            $data['picture'] = $this->getPictureUrls($dom);
+            $data['descr'] = $this->getDescr($dom);
+            $data = $this->checkParticipants($data); // TODO
+            $data = $this->simplifyDataKeys($data);
+            $data['monument_notion'] = $this->splitStringIntoTokens($data['monument_notion'], '&'); 
+            $data['nr'] = $this->splitStringIntoTokens($data['nr'], '&');
+            $data['date'] = $this->normalizeDate($data['date']);
+        } else {
+            echo 'Error, body and/or header = null';
+            $data = NULL;
+        }
+        return $data;
     }
     
     /**
@@ -128,21 +137,28 @@ class Crawler {
         $denkmal_detail_head = $body->item(1);
         $head_trs = $denkmal_detail_head->getElementsByTagName('tr');
         $firstAdr = TRUE;
+        $firstNr = TRUE;
         for ($j = 0; $j < $head_trs->length; $j++){
             $td = $head_trs->item($j)->getElementsByTagName('td');
-            for ($i = 0; $i < $td->length; $i++)
-            {       
+            //for ($i = 0; $i < $td->length; $i++){       
                 if($td->item(0)->nodeValue == 'Adresse'){
                     if($firstAdr == TRUE){
                         $firstAdr = FALSE;
                         $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                         $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
                     } // else nothing because we only take the first adress
+                }
+                if($td->item(0)->nodeValue == 'Hausnummer'){
+                    if($firstNr == TRUE){
+                        $firstNr = FALSE;
+                        $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
+                        $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                    } // else nothing because we only take the first housenr
                 } else { // every other data besides "address"
                     $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                     $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
                 }
-            }
+            //}
         }
         return $data;
     }
@@ -163,16 +179,39 @@ class Crawler {
         } else {
             $body_trs = $denkmal_detail_body->getElementsByTagName('tr');
             $j = 0;
+            $e = 0;
+            $a = 0;
+            $b = 0;
             for ($j = 0; $j < $body_trs->length; $j++) {
                 $td = $body_trs->item($j)->getElementsByTagName('td');
-                for ($i = 0; $i < $td->length; $i++)
-                {
-                    if($td->item(0)->nodeValue == 'Literatur:')
-                    {} else {
+                //for ($i = 0; $i < $td->length; $i++)
+                //{
+                    if($td->item(0)->nodeValue == 'Literatur:') //ignoring the literature
+                    {} else { 
                         $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
-                        $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                        // informations besides the three participant types
+                        if($td->item(0)->nodeValue != 'Entwurf:' && $td->item(0)->nodeValue != 'Ausführung:' &&
+                           $td->item(0)->nodeValue != 'Bauherr:'){
+                            $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                        }
+                        
+                        // the three participant types with possible several entries
+                        if($td->item(0)->nodeValue == 'Entwurf:'){
+                            if(is_numeric($td->item(1)->nodeValue == FALSE)){
+                               $data[$tag][$e] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                               $e++; 
+                            } else {} // ignore it if its a number
+                        }
+                        if($td->item(0)->nodeValue == 'Ausführung:'){
+                            $data[$tag][$a] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                            $a++;
+                        }
+                        if($td->item(0)->nodeValue == 'Bauherr:'){
+                            $data[$tag][$b] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                            $b++;
+                        }
                     }
-                }
+                //}
             }
         }
         return $data;
@@ -190,22 +229,26 @@ class Crawler {
         $denkmal_detail_text = $this->getElementsByClass($dom, 'div', 'denkmal_detail_text');
         if ($denkmal_detail_text != NULL) {
             $descr = '';
-            $pattern = '-{5,}';
-            $body_text = $denkmal_detail_text->getElementsByTagName('p');
+            $pattern = '/-{5,}/';
+            $body_text = $denkmal_detail_text[0]->getElementsByTagName('p');
             $stop = new DOMElement('p', 'stop');
-            $hr = $denkmal_detail_text->getElementsByTagName('hr');
-        if ($hr != NULL) {
-            $hr->parentNode->replaceChild($stop, $hr);
-        }
+            $hr = $denkmal_detail_text[0]->getElementsByTagName('hr');
+            // checking for <hr>s as sign for the textend.
+            if ($hr->length != 0) {
+                $denkmal_detail_text[0]->replaceChild($stop, $hr->item(0));
+                //$body_text = $denkmal_detail_text[0]->getElementsByTagName('p');
+                //echo $body_text->item(2)->nodeValue;
+            }
             for ($i = 0; $i < $body_text->length; $i++) {
-                preg_match($pattern, $body_text[$i]->nodeValue, $matches);
-                if ($matches[0] != NULL) {
+                // checking for ugly '---' strings
+                preg_match($pattern, $body_text->item($i)->nodeValue, $matches);
+                if (isset($matches[0])) {
                     $i = $body_text->length;
                 }
-                if($body_text[$i]->nodeValue == 'stop'){
+                if($body_text->item($i)->nodeValue == 'stop'){
                     $i = $body_text->length;
                 } else {
-                    $descr.append($body_text[$i]->nodeValue);
+                    $descr .= $body_text->item($i)->nodeValue;
                 }
             }
         } else {
@@ -224,12 +267,19 @@ class Crawler {
     
     private function getPictureUrls($dom){
         $denkmal_detail_img = $this->getElementsByClass($dom, 'div', 'denkmal_detail_img');
-        if ($denkmal_detail_img != NULL) {
-            $picture;
-            $body_imgs = $denkmal_detail_img->getElementsByTagName('a');
-            for ($i = 0; $i < $body_imgs->length; $i++) {
-                $picture[$i] = $body_imgs[$i]->getAttribute('href');
+        $picture = array();
+        if (isset($denkmal_detail_img) && !empty($denkmal_detail_img)) {
+            $body_imgs = $denkmal_detail_img[0]->getElementsByTagName('a');
+            if($body_imgs != NULL) {
+                for ($i = 0; $i < $body_imgs->length; $i++) {
+                    $picture[$i] = 'http://www.stadtentwicklung.berlin.de/denkmal/liste_karte_datenbank/de/denkmaldatenbank/' . 
+                    $body_imgs->item($i)->getAttribute('href');
+                }
+            } else {
+                $picture = NULL;
             }
+        } else {
+            $picture = NULL;
         }
         return $picture;
     }
@@ -259,6 +309,21 @@ class Crawler {
     }
     
     /**
+     * This function returns a given string into an array, separated by the token.
+     * Care: Also deletes all whitespaces.
+     * 
+     * @param   String  $string     the string you want to split into parts
+     * @param   String  $token      the token like '\n', '&', ' ', ...
+     * 
+     * @return  Array   $result     the parts of the given string in an array
+     */
+    
+    private function splitStringIntoTokens($string, $token){
+        $result = explode($token, str_replace(' ', '', $string));
+        return $result;
+    }
+    
+    /**
      * The function simply renames the array-keys in proper style.
      * 
      * @param   array   $data       the given data
@@ -274,13 +339,29 @@ class Crawler {
         $newData['nr'] = $data["Hausnummer"];
         $newData['type'] = $data["Denkmalart"];
         $newData['monument_notion'] = $data["Sachbegriff"];
-        $newData['date'] = $data["Datierung"];
-        $newData['p_concept'] = $data["Entwurf"];
-        $newData['p_exec'] = $data["Ausführung"];
-        $newData['p_builder'] = $data["Bauherr"];
-        $newData['picture'] = $data['picture'];
-        $newData['descr'] = $data['descr'];
+        if (isset($data["Datierung"]))
+            $newData['date'] = $data["Datierung"];
+        if (isset($data["Entwurf"]))
+            $newData['p_concept'] = $data["Entwurf"];
+        if (isset($data["Ausführung"]))
+            $newData['p_exec'] = $data["Ausführung"];
+        if (isset($data["Bauherr"]))
+            $newData['p_builder'] = $data["Bauherr"];
+        if (isset($data["picture"]))
+            $newData['picture'] = $data['picture'];
+        if (isset($data["descr"]))
+            $newData['descr'] = $data['descr'];
         return $newData;
+    }
+    
+    private function checkParticipants($data){
+        //TODO
+        return $data;
+    }
+    
+    private function normalizeDate($date){
+        //TODO
+        
     }
     
 }
