@@ -99,13 +99,15 @@ class Crawler {
             $data['name'] = $this->getName($dom);
             $data['picture'] = $this->getPictureUrls($dom);
             $data['descr'] = $this->getDescr($dom);
-            $data = $this->checkParticipants($data); // TODO
+            $data = $this->checkParticipants($data);
             $data = $this->simplifyDataKeys($data);
+            $data['district'] = $this->splitStringIntoTokens($data['district'], '&');
+            $data['sub_district'] = $this->splitStringIntoTokens($data['sub_district'], '&');
             $data['monument_notion'] = $this->splitStringIntoTokens($data['monument_notion'], '&'); 
             $data['nr'] = $this->splitStringIntoTokens($data['nr'], '&');
-            $data['date'] = $this->normalizeDate($data['date']);
+            $data = $this->normalizeDate($data);
         } else {
-            echo 'Error, body and/or header = null';
+            echo 'Error, body and/or header = null\n';
             $data = NULL;
         }
         return $data;
@@ -139,26 +141,24 @@ class Crawler {
         $firstAdr = TRUE;
         $firstNr = TRUE;
         for ($j = 0; $j < $head_trs->length; $j++){
-            $td = $head_trs->item($j)->getElementsByTagName('td');
-            //for ($i = 0; $i < $td->length; $i++){       
-                if($td->item(0)->nodeValue == 'Adresse'){
-                    if($firstAdr == TRUE){
-                        $firstAdr = FALSE;
-                        $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
-                        $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                    } // else nothing because we only take the first adress
-                }
-                if($td->item(0)->nodeValue == 'Hausnummer'){
-                    if($firstNr == TRUE){
-                        $firstNr = FALSE;
-                        $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
-                        $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                    } // else nothing because we only take the first housenr
-                } else { // every other data besides "address"
+            $td = $head_trs->item($j)->getElementsByTagName('td');  
+            if($td->item(0)->nodeValue == 'Adresse'){
+                if($firstAdr == TRUE){
+                    $firstAdr = FALSE;
                     $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                     $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                }
-            //}
+                } // else nothing because we only take the first adress
+            }
+            if($td->item(0)->nodeValue == 'Hausnummer'){
+                if($firstNr == TRUE){
+                    $firstNr = FALSE;
+                    $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
+                    $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                } // else nothing because we only take the first housenr
+            } else { // every other data besides "address"
+                $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
+                $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+            }
         }
         return $data;
     }
@@ -172,46 +172,40 @@ class Crawler {
      */
     
     private function getBodyData($dom){
-        $body = $dom->getElementsByTagName('table');
-        $denkmal_detail_body = $body->item(2);
+        $body = $this->getElementsByClass($dom, 'table', 'denkmal_detail_body');
+        if(isset($body[0])){
+            $denkmal_detail_body = $body[0];
+        } else {
+            $denkmal_detail_body = NULL;
+        }
         if($denkmal_detail_body == NULL) {
             $data = NULL;
         } else {
             $body_trs = $denkmal_detail_body->getElementsByTagName('tr');
             $j = 0;
-            $e = 0;
-            $a = 0;
-            $b = 0;
             for ($j = 0; $j < $body_trs->length; $j++) {
                 $td = $body_trs->item($j)->getElementsByTagName('td');
-                //for ($i = 0; $i < $td->length; $i++)
-                //{
-                    if($td->item(0)->nodeValue == 'Literatur:') //ignoring the literature
-                    {} else { 
-                        $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
-                        // informations besides the three participant types
-                        if($td->item(0)->nodeValue != 'Entwurf:' && $td->item(0)->nodeValue != 'Ausführung:' &&
-                           $td->item(0)->nodeValue != 'Bauherr:'){
-                            $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                        }
-                        
-                        // the three participant types with possible several entries
-                        if($td->item(0)->nodeValue == 'Entwurf:'){
-                            if(is_numeric($td->item(1)->nodeValue == FALSE)){
-                               $data[$tag][$e] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                               $e++; 
-                            } else {} // ignore it if its a number
-                        }
-                        if($td->item(0)->nodeValue == 'Ausführung:'){
-                            $data[$tag][$a] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                            $a++;
-                        }
-                        if($td->item(0)->nodeValue == 'Bauherr:'){
-                            $data[$tag][$b] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
-                            $b++;
-                        }
+                if($td->item(0)->nodeValue == 'Literatur:') //ignoring the literature
+                {} else { 
+                    $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
+                    // informations besides the three participant types
+                    if($td->item(0)->nodeValue != 'Entwurf:' && $td->item(0)->nodeValue != 'Ausführung:' &&
+                        $td->item(0)->nodeValue != 'Bauherr:'){
+                        $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                    }          
+                    // the three participant types with possible several entries
+                    if($td->item(0)->nodeValue == 'Entwurf:'){
+                        if(is_numeric($td->item(1)->nodeValue == FALSE)){
+                            $data['p_concept'][] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                        } else {} // ignore it if its a number
                     }
-                //}
+                    if($td->item(0)->nodeValue == 'Ausführung:'){
+                        $data['p_exec'][] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                    }
+                    if($td->item(0)->nodeValue == 'Bauherr:'){
+                        $data['p_builder'][] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
+                    }
+                }
             }
         }
         return $data;
@@ -236,8 +230,6 @@ class Crawler {
             // checking for <hr>s as sign for the textend.
             if ($hr->length != 0) {
                 $denkmal_detail_text[0]->replaceChild($stop, $hr->item(0));
-                //$body_text = $denkmal_detail_text[0]->getElementsByTagName('p');
-                //echo $body_text->item(2)->nodeValue;
             }
             for ($i = 0; $i < $body_text->length; $i++) {
                 // checking for ugly '---' strings
@@ -327,6 +319,7 @@ class Crawler {
      * The function simply renames the array-keys in proper style.
      * 
      * @param   array   $data       the given data
+     * 
      * @return  array   $newData    given data returned with renamed keys       
      */
     
@@ -340,13 +333,17 @@ class Crawler {
         $newData['type'] = $data["Denkmalart"];
         $newData['monument_notion'] = $data["Sachbegriff"];
         if (isset($data["Datierung"]))
-            $newData['date'] = $data["Datierung"];
-        if (isset($data["Entwurf"]))
-            $newData['p_concept'] = $data["Entwurf"];
-        if (isset($data["Ausführung"]))
-            $newData['p_exec'] = $data["Ausführung"];
-        if (isset($data["Bauherr"]))
-            $newData['p_builder'] = $data["Bauherr"];
+            $newData['date'] = $data['Datierung'];
+        if (isset($data['Fertigstellung']))
+            $newData['completion'] = $data['Fertigstellung'];
+        if(isset($data['Baubeginn']))
+            $newData['build_start'] = $data['Baubeginn'];
+        if (isset($data['p_concept']))
+            $newData['p_concept'] = $data['p_concept'];
+        if (isset($data['p_exec']))
+            $newData['p_exec'] = $data['p_exec'];
+        if (isset($data['p_builder']))
+            $newData['p_builder'] = $data['p_builder'];
         if (isset($data["picture"]))
             $newData['picture'] = $data['picture'];
         if (isset($data["descr"]))
@@ -354,14 +351,68 @@ class Crawler {
         return $newData;
     }
     
+    /**
+     * The function checks for participants with multiple appearings and normalize them
+     * 
+     * @param   array $data the given object-data with possible participants information
+     * 
+     * @return  array $data returning object-data with normalized participants information   
+     */
+    
     private function checkParticipants($data){
-        //TODO
+        $keys = array_keys($data);
+        foreach ($keys as $key){
+            if (strpos($key,'Entwurf') !== false) {
+                $data['p_concept'][] = $data[$key];
+            }
+            if (strpos($key,'Ausführung') !== false) {
+                 $data['p_exec'][] = $data[$key];
+            }
+            if (strpos($key,'Bauherr') !== false) {
+                 $data['p_builder'][] = $data[$key];
+            }
+        }
+        var_dump($data);
         return $data;
     }
     
-    private function normalizeDate($date){
-        //TODO
-        
+    /**
+     * The function normalizes several different date descriptions.
+     * 
+     * @param   array $data the given object-data with possible date information
+     * 
+     * @return  array $data returning object-data with normalized date information
+     */
+    
+    private function normalizeDate($data){
+        if(!isset($data['build_start']) && !isset($data['completion']) && isset($data['date'])){
+            $pattern1 = '/([0-9]{4}-[0-9]{4})|([0-9]{4}\/[0-9]{4})/'; // 1900-1910 / 1900/1910
+            $pattern2 = '/(um [0-9]{4})|([0-9]{4})/'; // um 1900 / 1900
+            $pattern3 = '/[0-9]{4}/'; // only the year
+            $date = $data['date'];
+            unset($data['date']);
+            $success = preg_match($pattern1, $date , $matches);
+            if($success){
+                preg_match_all($pattern3, $date, $matches);
+                $data['date']['beginning'] = $matches[0][0];
+                $data['date']['ending'] = $matches[0][1];
+            } else {
+                $success = preg_match($pattern2, $date, $matches);
+                if($success){
+                    preg_match($pattern3, $date, $matches);
+                    $data['date']['beginning'] = $matches[0];
+                }   
+            }
+        }
+        if(isset($data['build_start'])){
+            $data['date']['beginning'] = $data['build_start'];
+            unset($data['build_start']);
+        }
+        if(isset($data['completion'])){
+            $data['date']['ending'] = $data['completion'];
+            unset($data['completion']);
+        }
+        return $data;
     }
     
 }
