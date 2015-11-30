@@ -1,6 +1,6 @@
 <?php
 
-require 'config.php';
+require_once 'config.php';
 
 /**
  *  This class provides functions for connecting with a database by using PDO.
@@ -60,32 +60,20 @@ class Storage {
      * @return type
      */
     
-    public function saveMonument($data) {
-        $sql = 'INSERT INTO monuments (name, obj_nr, descr, type, strasse, '
-                . 'hausnummer, denkmalart, sachbegriff, datierung, entwurf, ausfuehrung, bauherr) '
-                . 'VALUES (:name, :objektNr, :bezirk, :ortsteil, :strasse, :hausnummer, '
-                . ':denkmalart, :sachbegriff, :datierung, :entwurf, :ausfuehrung, :bauherr)';
+    public function insertMonument($monument){
+        $placeholders = implode(',', array_fill(0, count($monument), '?'));
+        $sql = "INSERT INTO monuments (name, obj_nr, descr, type_id, super_monument_id)" .
+               "VALUES ($placeholders) RETURNING id";
         $statement = $this->connection->prepare($sql);
-        $statement->bindParam(':name', $data["Name"], PDO::PARAM_STR);
-        $statement->bindParam(':objektNr', $data["Obj.-Dok.-Nr."], PDO::PARAM_STR);
-        $statement->bindParam(':bezirk', $data["Bezirk"], PDO::PARAM_STR);
-        $statement->bindParam(':ortsteil', $data["Ortsteil"], PDO::PARAM_STR);
-        $statement->bindParam(':strasse', $data["Strasse"], PDO::PARAM_STR);
-        $statement->bindParam(':hausnummer', $data["Hausnummer"], PDO::PARAM_STR);
-        $statement->bindParam(':denkmalart', $data["Denkmalart"], PDO::PARAM_STR);
-        $statement->bindParam(':sachbegriff', $data["Sachbegriff"], PDO::PARAM_STR);
-        $statement->bindParam(':datierung', $data["Datierung"], PDO::PARAM_STR);
-        $statement->bindParam(':entwurf', $data["Entwurf"], PDO::PARAM_STR);
-        $statement->bindParam(':ausfuehrung', $data["Ausführung"], PDO::PARAM_STR);
-        $statement->bindParam(':bauherr', $data["Bauherr"], PDO::PARAM_STR);
-        return $statement->execute();
+        return $statement->execute($monument);
+
     }
     
     /**
      * 
      */
     
-    public function getUnusedId($table) {
+    public function getUnusedId($table){
         $statement = $this->connection->prepare('SELECT MAX(id) from :table');
         $statement->bindParam(':table', $table, PDO::PARAM_STR);
         $result = $statement->execute();
@@ -119,41 +107,112 @@ class Storage {
      * @param array $data   the data
      */
     
-    public function saveType($data){
+    public function insertType($type){
         $statement = $this->connection->prepare('INSERT INTO type (name) VALUES (:name) RETURNING id');
-        $statement->bindParam(':name', $data['denkmalart'], PDO::PARAM_STR);
+        $statement->bindParam(':name', $type, PDO::PARAM_STR);
         $result = $statement->execute();
         return $result;
     }
     
-    /**
-     *  The function inserts the given data into the db.
-     * 
-     *  @param       $data   the data
-     *  @return      bool    true (success) or false (error)
-     */
-    
-    public function saveObject($data){
-        $sql = 'INSERT INTO objects (name, objektNr, bezirk, ortsteil, strasse, '
-                . 'hausnummer, denkmalart, sachbegriff, datierung, entwurf, ausfuehrung, bauherr) '
-                . 'VALUES (:name, :objektNr, :bezirk, :ortsteil, :strasse, :hausnummer, '
-                . ':denkmalart, :sachbegriff, :datierung, :entwurf, :ausfuehrung, :bauherr)';
-        $statement = $this->connection->prepare($sql);
-        $statement->bindParam(':name', $data["Name"], PDO::PARAM_STR);
-        $statement->bindParam(':objektNr', $data["Obj.-Dok.-Nr."], PDO::PARAM_STR);
-        $statement->bindParam(':bezirk', $data["Bezirk"], PDO::PARAM_STR);
-        $statement->bindParam(':ortsteil', $data["Ortsteil"], PDO::PARAM_STR);
-        $statement->bindParam(':strasse', $data["Strasse"], PDO::PARAM_STR);
-        $statement->bindParam(':hausnummer', $data["Hausnummer"], PDO::PARAM_STR);
-        $statement->bindParam(':denkmalart', $data["Denkmalart"], PDO::PARAM_STR);
-        $statement->bindParam(':sachbegriff', $data["Sachbegriff"], PDO::PARAM_STR);
-        $statement->bindParam(':datierung', $data["Datierung"], PDO::PARAM_STR);
-        $statement->bindParam(':entwurf', $data["Entwurf"], PDO::PARAM_STR);
-        $statement->bindParam(':ausfuehrung', $data["Ausführung"], PDO::PARAM_STR);
-        $statement->bindParam(':bauherr', $data["Bauherr"], PDO::PARAM_STR);
-        return $statement->execute();
+    public function getDistrictId($district){
+        $statement = $this->connection->prepare('Select id from district where name = :district');
+        $statement->bindParam(':district', $district, PDO::PARAM_STR);
+        $result = $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1) {
+            $result = NULL;
+        } else {
+            $result = $statement->fetch();
+        }
+        return $result;
     }
     
+    public function insertDistrict($district, $monumentId){
+        $st_table = $this->connection->prepare('INSERT INTO district (name) VALUES (:name) RETURNING id');
+        $st_table->bindParam(':name', $district, PDO::PARAM_STR);
+        $districtId = $st_table->execute();
+        $st_rel = $this->connection->prepare('INSERT INTO district_rel (district_id, monument_id) ' .
+                'VALUES (:district_id, :monument_id)');
+        $st_rel->bindParam(':district_id', $districtId, PDO::PARAM_STR);
+        $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $st_rel->execute();
+    }
     
+    public function getSubDistrictId($subDistrict){
+        $statement = $this->connection->prepare('Select id from sub_district where name = :sub_district');
+        $statement->bindParam(':sub_district', $subDistrict, PDO::PARAM_STR);
+        $result = $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1) {
+            $result = NULL;
+        } else {
+            $result = $statement->fetch();
+        }
+        return $result;
+    }
     
+    public function insertSubDistrict($subDistrict, $monumentId){
+        $st_table = $this->connection->prepare('INSERT INTO sub_district (name) VALUES (:name) RETURNING id');
+        $st_table->bindParam(':name', $subDistrict, PDO::PARAM_STR);
+        $subDistrictId = $st_table->execute();
+        $st_rel = $this->connection->prepare('INSERT INTO sub_district_rel (sub_district_id, monument_id) ' .
+                'VALUES (:sub_district_id, :monument_id)');
+        $st_rel->bindParam(':sub_district_id', $subDistrictId, PDO::PARAM_STR);
+        $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $st_rel->execute();
+    }
+    
+    public function insertAddress($address){
+        $placeholders = implode(',', array_fill(0, count($address), '?'));
+        $sql = "INSERT INTO address (lat, long, street, nr, monument_id)" .
+               "VALUES ($placeholders) RETURNING id";
+        $statement = $this->connection->prepare($sql);
+        return $statement->execute($address);
+    }
+    
+    public function getMonumentNotionId($monumentNotion){
+        $statement = $this->connection->prepare('Select id from monument_notion where name = :monument_notion');
+        $statement->bindParam(':monument_notion', $monumentNotion, PDO::PARAM_STR);
+        $result = $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1) {
+            $result = NULL;
+        } else {
+            $result = $statement->fetch();
+        }
+        return $result;
+    }
+    
+    public function insertMonumentNotion($monumentNotion, $monumentId){
+        $st_table = $this->connection->prepare('INSERT INTO monument_notion (name) VALUES (:name) RETURNING id');
+        $st_table->bindParam(':name', $monumentNotion, PDO::PARAM_STR);
+        $monumentNotionId = $st_table->execute();
+        $st_rel = $this->connection->prepare('INSERT INTO monument_notion_rel (monument_notion_id, monument_id) ' .
+                'VALUES (:monument_notion_id, :monument_id)');
+        $st_rel->bindParam(':monument_notion_id', $monumentNotionId, PDO::PARAM_STR);
+        $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $st_rel->execute();
+    }
+    
+    public function insertPictureUrl($pictureUrl, $monumentId){
+        $st_table = $this->connection->prepare('INSERT INTO picture (url, monument_id) VALUES (:url, :monument_id)');
+        $st_table->bindParam(':url', $pictureUrl, PDO::PARAM_STR);
+        $st_table->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $st_table->execute();
+    }
+    
+    public function insertDating($date, $monumentId){
+        $st_table = $this->connection->prepare('INSERT INTO dating (beginning, ending, monument_id) '
+                . 'VALUES (:beginning, :ending, :monument_id)');
+        if(isset($date['beginning']))
+            $st_table->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
+        else
+             $st_table->bindParam(':beginning', 'NULL', PDO::PARAM_STR);
+        if(isset($date['ending']))
+            $st_table->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
+        else
+            $st_table->bindParam(':ending', 'NULL', PDO::PARAM_STR);
+        $st_table->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $st_table->execute();
+    }
 }
