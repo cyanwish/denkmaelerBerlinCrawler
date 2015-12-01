@@ -17,7 +17,7 @@ class Storage {
     public function __construct() {
       // insert your own credentials here
       $db_host = 'db.f4.htw-berlin.de';
-      $db_name = '_s0544768__dmb';
+      $db_name = '_s0544759__dmb';
       $db_user = getUser();
       $db_pass = getPw();
       try {
@@ -41,17 +41,16 @@ class Storage {
      * 
      */
     
-    public function getMonument($id) {
-        $statement = $this->connection->prepare('SELECT * FROM monuments WHERE city = :city');
-        $statement->bindParam(':city', $city, PDO::PARAM_STR);
-        $result = $statement->execute();
+    public function getMonument($obj_nr) {
+        $statement = $this->connection->prepare('SELECT * FROM monument WHERE obj_nr = :obj_nr');
+        $statement->bindParam(':obj_nr', $obj_nr, PDO::PARAM_STR);
+        $statement->execute();
         $rows = $statement->rowCount();
-        if ($rows < 1) {
-            $result = NULL;
-        } else {
-            $result = $statement->fetch();
-        }
-        return $result;
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
     }
     
     /**
@@ -62,23 +61,11 @@ class Storage {
     
     public function insertMonument($monument){
         $placeholders = implode(',', array_fill(0, count($monument), '?'));
-        $sql = "INSERT INTO monuments (name, obj_nr, descr, type_id, super_monument_id)" .
-               "VALUES ($placeholders) RETURNING id";
+        $sql = "INSERT INTO monument (name, obj_nr, descr, type_id, super_monument_id, link_id)" .
+               " VALUES ($placeholders) RETURNING id";
         $statement = $this->connection->prepare($sql);
-        return $statement->execute($monument);
-
-    }
-    
-    /**
-     * 
-     */
-    
-    public function getUnusedId($table){
-        $statement = $this->connection->prepare('SELECT MAX(id) from :table');
-        $statement->bindParam(':table', $table, PDO::PARAM_STR);
-        $result = $statement->execute();
-        $result = $statement->fetch();
-        return $result + 1;
+        $statement->execute($monument);
+        return $statement->fetch()['id'];
     }
     
     /**
@@ -97,7 +84,7 @@ class Storage {
         } else {
             $result = $statement->fetch();
         }
-        return $result;
+        return $result['id'];
     }
     
     /**
@@ -110,27 +97,27 @@ class Storage {
     public function insertType($type){
         $statement = $this->connection->prepare('INSERT INTO type (name) VALUES (:name) RETURNING id');
         $statement->bindParam(':name', $type, PDO::PARAM_STR);
-        $result = $statement->execute();
-        return $result;
+        $statement->execute();
+        return $statement->fetch()['id'];
     }
     
     public function getDistrictId($district){
         $statement = $this->connection->prepare('Select id from district where name = :district');
         $statement->bindParam(':district', $district, PDO::PARAM_STR);
-        $result = $statement->execute();
+        $statement->execute();
         $rows = $statement->rowCount();
-        if ($rows < 1) {
-            $result = NULL;
-        } else {
-            $result = $statement->fetch();
-        }
-        return $result;
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
     }
     
     public function insertDistrict($district, $monumentId){
         $st_table = $this->connection->prepare('INSERT INTO district (name) VALUES (:name) RETURNING id');
         $st_table->bindParam(':name', $district, PDO::PARAM_STR);
-        $districtId = $st_table->execute();
+        $st_table->execute();
+        $districtId = $st_table->fetch()['id'];
         $st_rel = $this->connection->prepare('INSERT INTO district_rel (district_id, monument_id) ' .
                 'VALUES (:district_id, :monument_id)');
         $st_rel->bindParam(':district_id', $districtId, PDO::PARAM_STR);
@@ -141,20 +128,20 @@ class Storage {
     public function getSubDistrictId($subDistrict){
         $statement = $this->connection->prepare('Select id from sub_district where name = :sub_district');
         $statement->bindParam(':sub_district', $subDistrict, PDO::PARAM_STR);
-        $result = $statement->execute();
+        $statement->execute();
         $rows = $statement->rowCount();
-        if ($rows < 1) {
-            $result = NULL;
-        } else {
-            $result = $statement->fetch();
-        }
-        return $result;
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id= $statement->fetch()['id'];
+        return $id;
     }
     
     public function insertSubDistrict($subDistrict, $monumentId){
         $st_table = $this->connection->prepare('INSERT INTO sub_district (name) VALUES (:name) RETURNING id');
         $st_table->bindParam(':name', $subDistrict, PDO::PARAM_STR);
-        $subDistrictId = $st_table->execute();
+        $st_table->execute();
+        $subDistrictId = $st_table->fetch()['id'];
         $st_rel = $this->connection->prepare('INSERT INTO sub_district_rel (sub_district_id, monument_id) ' .
                 'VALUES (:sub_district_id, :monument_id)');
         $st_rel->bindParam(':sub_district_id', $subDistrictId, PDO::PARAM_STR);
@@ -162,10 +149,26 @@ class Storage {
         return $st_rel->execute();
     }
     
+    public function getAddressId($address){
+        var_dump($address);
+        $statement = $this->connection->prepare('Select id from address where street = :street AND nr = :nr');
+        $statement->bindParam(':street', $address['street'], PDO::PARAM_STR);
+        $statement->bindParam(':nr', $address['nr'][0], PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id= $statement->fetch()['id'];
+        var_dump($this->connection->errorInfo());
+        var_dump($id);
+        return $id;
+    }
+    
     public function insertAddress($address){
         $placeholders = implode(',', array_fill(0, count($address), '?'));
         $sql = "INSERT INTO address (lat, long, street, nr, monument_id)" .
-               "VALUES ($placeholders) RETURNING id";
+               " VALUES ($placeholders)";
         $statement = $this->connection->prepare($sql);
         return $statement->execute($address);
     }
@@ -173,25 +176,37 @@ class Storage {
     public function getMonumentNotionId($monumentNotion){
         $statement = $this->connection->prepare('Select id from monument_notion where name = :monument_notion');
         $statement->bindParam(':monument_notion', $monumentNotion, PDO::PARAM_STR);
-        $result = $statement->execute();
+        $statement->execute();
         $rows = $statement->rowCount();
-        if ($rows < 1) {
-            $result = NULL;
-        } else {
-            $result = $statement->fetch();
-        }
-        return $result;
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
     }
     
     public function insertMonumentNotion($monumentNotion, $monumentId){
         $st_table = $this->connection->prepare('INSERT INTO monument_notion (name) VALUES (:name) RETURNING id');
         $st_table->bindParam(':name', $monumentNotion, PDO::PARAM_STR);
-        $monumentNotionId = $st_table->execute();
+        $st_table->execute();
+        $monumentNotionId = $st_table->fetch()['id'];
         $st_rel = $this->connection->prepare('INSERT INTO monument_notion_rel (monument_notion_id, monument_id) ' .
                 'VALUES (:monument_notion_id, :monument_id)');
         $st_rel->bindParam(':monument_notion_id', $monumentNotionId, PDO::PARAM_STR);
         $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
         return $st_rel->execute();
+    }
+    
+    public function getPictureUrlId($picture){
+        $statement = $this->connection->prepare('Select id from picture where url = :url');
+        $statement->bindParam(':url', $picture, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;    
     }
     
     public function insertPictureUrl($pictureUrl, $monumentId){
@@ -201,17 +216,28 @@ class Storage {
         return $st_table->execute();
     }
     
+    public function getDatingId($date){
+        $statement = $this->connection->prepare('Select id from dating where beginning = :beginning AND ending = :ending');
+        $statement->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
+        $statement->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
     public function insertDating($date, $monumentId){
         $st_table = $this->connection->prepare('INSERT INTO dating (beginning, ending, monument_id) '
                 . 'VALUES (:beginning, :ending, :monument_id)');
-        if(isset($date['beginning']))
-            $st_table->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
-        else
-             $st_table->bindParam(':beginning', 'NULL', PDO::PARAM_STR);
-        if(isset($date['ending']))
-            $st_table->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
-        else
-            $st_table->bindParam(':ending', 'NULL', PDO::PARAM_STR);
+        $st_table->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
+        $st_table->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
+        if(!isset($date['beginning']))
+            $date['beginning'] = NULL;
+        if(!isset($date['ending']))
+             $date['ending'] = NULL;
         $st_table->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
         return $st_table->execute();
     }
