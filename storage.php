@@ -150,7 +150,6 @@ class Storage {
     }
     
     public function getAddressId($address){
-        var_dump($address);
         $statement = $this->connection->prepare('Select id from address where street = :street AND nr = :nr');
         $statement->bindParam(':street', $address['street'], PDO::PARAM_STR);
         $statement->bindParam(':nr', $address['nr'][0], PDO::PARAM_STR);
@@ -160,8 +159,6 @@ class Storage {
             $id = NULL;
         else
             $id= $statement->fetch()['id'];
-        var_dump($this->connection->errorInfo());
-        var_dump($id);
         return $id;
     }
     
@@ -210,10 +207,10 @@ class Storage {
     }
     
     public function insertPictureUrl($pictureUrl, $monumentId){
-        $st_table = $this->connection->prepare('INSERT INTO picture (url, monument_id) VALUES (:url, :monument_id)');
-        $st_table->bindParam(':url', $pictureUrl, PDO::PARAM_STR);
-        $st_table->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
-        return $st_table->execute();
+        $statement = $this->connection->prepare('INSERT INTO picture (url, monument_id) VALUES (:url, :monument_id)');
+        $statement->bindParam(':url', $pictureUrl, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
     }
     
     public function getDatingId($date){
@@ -230,15 +227,79 @@ class Storage {
     }
     
     public function insertDating($date, $monumentId){
-        $st_table = $this->connection->prepare('INSERT INTO dating (beginning, ending, monument_id) '
+        $statement = $this->connection->prepare('INSERT INTO dating (beginning, ending, monument_id) '
                 . 'VALUES (:beginning, :ending, :monument_id)');
-        $st_table->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
-        $st_table->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
+        $statement->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
+        $statement->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
         if(!isset($date['beginning']))
             $date['beginning'] = NULL;
         if(!isset($date['ending']))
              $date['ending'] = NULL;
-        $st_table->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
-        return $st_table->execute();
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
+    }
+    
+    public function getParticipantId($participant){
+        $statement = $this->connection->prepare('Select id from participant where name = :name');
+        $statement->bindParam(':name', $participant, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function getParticipantTypeId($type){
+        $statement = $this->connection->prepare('Select id from participant_type where name = :name');
+        $statement->bindParam(':name', $type, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function getParticipantInRel($participantId, $typeId, $monumentId){
+        $statement = $this->connection->prepare('Select id from participant_rel where '
+                . 'monument_id = :monument_id AND participant_id = :participant_id AND '
+                . 'participant_type_id = :participant_type_id');
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->bindParam(':participant_id', $participantId, PDO::PARAM_STR);
+        $statement->bindParam(':participant_type_id', $typeId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function insertParticipant($participant){
+        $statement = $this->connection->prepare('INSERT INTO participant (name) '
+                . 'VALUES (:name) RETURNING id');
+        $statement->bindParam(':name', $participant, PDO::PARAM_STR);
+        $statement->execute();
+        return $statement->fetch()['id'];
+    }
+    
+    public function insertParticipantInRel($participantId, $typeId, $monumentId){
+        $statement = $this->connection->prepare('INSERT INTO participant_rel (monument_id, participant_id, participant_type_id) ' .
+                'VALUES (:monument_id, :participant_id, :participant_type_id)');
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->bindParam(':participant_id', $participantId, PDO::PARAM_STR);
+        $statement->bindParam(':participant_type_id', $typeId, PDO::PARAM_STR);
+        return $statement->execute();
+    }
+    
+    public function insertParticipantType($type){
+        $statement = $this->connection->prepare('INSERT INTO participant_type (name) VALUES (:name) RETURNING id');
+        $statement->bindParam(':name', $type, PDO::PARAM_STR);
+        $statement->execute();
+        return $statement->fetch()['id'];
     }
 }
