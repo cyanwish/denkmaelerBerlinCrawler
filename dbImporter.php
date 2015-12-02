@@ -59,6 +59,7 @@ class dbImporter{
             $this->writePictureUrl();
             $this->writeMonumentNotion();
             $this->writeDating();
+            $this->writeParticipant();
         } else {
             $this->log->lwrite($this->data['obj_nr'] . " --- missing monument-data.\n");
         }
@@ -173,6 +174,60 @@ class dbImporter{
             }
         } else {
             $this->log->lwrite($this->data['obj_nr'] . " --- missing monument dating\n");
+        }
+    }
+    
+    private function writeParticipant(){
+        if(isset($this->data['p_exec'])){
+            foreach($this->data['p_exec'] as $exec){
+                $typeId = $this->storage->getParticipantTypeId ('Ausführung');
+                if($typeId == null){
+                    $typeId = $this->storage->insertParticipantType('Ausführung');
+                }
+                $execId = $this->storage->getParticipantId($exec);
+                if($execId == NULL){
+                    $execId = $this->storage->insertParticipant($exec);
+                    $this->storage->insertParticipantInRel($execId, $typeId, $this->data['id']);   
+                } else {
+                    if($this->storage->getParticipantInRel($execId, $typeId, $this->data['id']) == NULL){
+                        $this->storage->insertParticipantInRel($execId, $typeId, $this->data['id']);
+                    } else {}//Update
+                }
+            }
+        }
+        if(isset($this->data['p_builder'])){
+            foreach($this->data['p_builder'] as $builder){
+                $typeId = $this->storage->getParticipantTypeId ('Bauherr');
+                if($typeId == null){
+                    $typeId = $this->storage->insertParticipantType('Bauherr');
+                }
+                $builderId = $this->storage->getParticipantId($builder);
+                if($builderId == NULL){
+                    $builderId = $this->storage->insertParticipant($builder);
+                    $this->storage->insertParticipantInRel($builderId, $typeId, $this->data['id']);   
+                } else {
+                    if($this->storage->getParticipantInRel($builderId, $typeId, $this->data['id']) == NULL){
+                        $this->storage->insertParticipantInRel($builderId, $typeId, $this->data['id']);
+                    } else {}//Update
+                }
+            }
+        }
+        if(isset($this->data['p_concept'])){
+            foreach($this->data['p_concept'] as $concept){
+                $typeId = $this->storage->getParticipantTypeId ('Entwurf');
+                if($typeId == null){
+                    $typeId = $this->storage->insertParticipantType('Entwurf');
+                }
+                $conceptId = $this->storage->getParticipantId($concept);
+                if($conceptId == NULL){
+                    $conceptId = $this->storage->insertParticipant($concept);
+                    $this->storage->insertParticipantInRel($conceptId, $typeId, $this->data['id']);   
+                } else {
+                    if($this->storage->getParticipantInRel($conceptId, $typeId, $this->data['id']) == NULL){
+                        $this->storage->insertParticipantInRel($conceptId, $typeId, $this->data['id']);
+                    } else {}//Update
+                }
+            }
         }
     }
 }   
