@@ -14,17 +14,17 @@ class Storage {
      *  The constructor of the class.
      */
     
-    public function __construct() {
+    public function __construct(){
       // insert your own credentials here
       $db_host = 'db.f4.htw-berlin.de';
       $db_name = '_s0544759__dmb';
       $db_user = getUser();
       $db_pass = getPw();
-      try {
+      try{
          $this->connection = new PDO("pgsql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
          $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
       }
-      catch (PDOException $e) {
+      catch (PDOException $e){
          die($e->getMessage());
       }
     }
@@ -33,7 +33,7 @@ class Storage {
      *  The destructor of the class. 
      */
     
-    public function __destruct() {
+    public function __destruct(){
         $this->connection = null;
     }
     
@@ -41,8 +41,19 @@ class Storage {
      * 
      */
     
-    public function getMonument($obj_nr) {
-        $statement = $this->connection->prepare('SELECT * FROM monument WHERE obj_nr = :obj_nr');
+    public function getAllMonumentIds(){
+        $statement = $this->connection->prepare('SELECT id FROM monument');
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $result = NULL;
+        else
+            $result = $statement->fetchAll();
+        return $result;
+    }
+    
+    public function getMonumentId($obj_nr){
+        $statement = $this->connection->prepare('SELECT id FROM monument WHERE obj_nr = :obj_nr');
         $statement->bindParam(':obj_nr', $obj_nr, PDO::PARAM_STR);
         $statement->execute();
         $rows = $statement->rowCount();
@@ -51,6 +62,18 @@ class Storage {
         else
             $id = $statement->fetch()['id'];
         return $id;
+    }
+    
+    public function getMonument($obj_nr){
+        $statement = $this->connection->prepare('SELECT * FROM monument WHERE obj_nr = :obj_nr');
+        $statement->bindParam(':obj_nr', $obj_nr, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $result = NULL;
+        else
+            $result = $statement->fetchAll();
+        return $result;
     }
     
     /**
@@ -113,6 +136,18 @@ class Storage {
         return $id;
     }
     
+    public function getDistrict($districtId){
+        $statement = $this->connection->prepare('Select * from district where id = :id');
+        $statement->bindParam(':id', $districtId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $result = NULL;
+        else
+            $result = $statement->fetchAll();
+        return $result;
+    }
+    
     public function getDistrictInRel($districtId, $monumentId){
         $statement = $this->connection->prepare('Select id from district_rel '
                 . 'where district_id = :district_id AND monument_id = :monument_id ');
@@ -124,6 +159,19 @@ class Storage {
             $id = NULL;
         else
             $id= $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function getDistrictIdsFromMonument($monumentId){
+        $statement = $this->connection->prepare('Select district_id from district_rel '
+                . 'where monument_id = :monument_id ');
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id= $statement->fetchAll();
         return $id;
     }
     
@@ -197,6 +245,29 @@ class Storage {
         return $id;
     }
     
+    public function getAllAddressIds(){
+        $statement = $this->connection->prepare('Select id from address');
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $result = NULL;
+        else
+            $result = $statement->fetchAll();
+        return $result;
+    }
+    
+    public function getAddress($id){
+        $statement = $this->connection->prepare('Select * from address where id = :id');
+        $statement->bindParam(':id', $id, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $result = NULL;
+        else
+            $result = $statement->fetchAll();
+        return $result;
+    }
+    
     public function getAddressInRel($addressId, $monumentId){
         $statement = $this->connection->prepare('Select id from address_rel where monument_id = :monument_id AND address_id = :address_id');
         $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
@@ -224,6 +295,14 @@ class Storage {
                 'VALUES (:monument_id, :address_id)');
         $statement->bindParam(':address_id', $addressId, PDO::PARAM_STR);
         $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
+    }
+    
+    public function updateCoordinatesOfAddress($addressId, $lat, $long){
+        $statement = $this->connection->prepare('UPDATE address SET lat = :lat, long = :long WHERE id = :id');
+        $statement->bindParam(':lat', $lat, PDO::PARAM_STR);
+        $statement->bindParam(':long', $long, PDO::PARAM_STR);
+        $statement->bindParam(':id', $addressId, PDO::PARAM_STR);
         return $statement->execute();
     }
     
