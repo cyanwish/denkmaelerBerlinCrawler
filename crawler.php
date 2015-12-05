@@ -391,7 +391,7 @@ class Crawler {
      */
     
     private function normalizeDate($data){
-        if(!isset($data['build_start']) && !isset($data['completion']) && isset($data['date'])){
+        if(isset($data['date'])){
             $pattern1 = '/([0-9]{4}-[0-9]{4})|([0-9]{4}\/[0-9]{4})/'; // 1900-1910 / 1900/1910
             $pattern2 = '/(um [0-9]{4})|([0-9]{4})/'; // um 1900 / 1900
             $pattern3 = '/[0-9]{4}/'; // only the year
@@ -410,11 +410,11 @@ class Crawler {
                 }   
             }
         }
-        if(isset($data['build_start'])){
+        if(isset($data['build_start']) && !isset($data['date'])){
             $data['date']['beginning'] = $data['build_start'];
             unset($data['build_start']);
         }
-        if(isset($data['completion'])){
+        if(isset($data['completion']) && !isset($data['date'])){
             $data['date']['ending'] = $data['completion'];
             unset($data['completion']);
         }
