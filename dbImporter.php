@@ -75,7 +75,7 @@ class dbImporter{
      */
     // Missing super-monument id & link id
     private function writeMonument(){
-        if($this->storage->getMonument($this->data['obj_nr']) == NULL) {
+        if($this->storage->getMonumentId($this->data['obj_nr']) == NULL) {
             if(!isset($this->data['descr']))
                 $this->data['descr'] = NULL;
             if(!isset($this->data['dating_id']))
