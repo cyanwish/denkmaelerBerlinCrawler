@@ -61,7 +61,7 @@ class Storage {
     
     public function insertMonument($monument){
         $placeholders = implode(',', array_fill(0, count($monument), '?'));
-        $sql = "INSERT INTO monument (name, obj_nr, descr, type_id, super_monument_id, link_id)" .
+        $sql = "INSERT INTO monument (name, obj_nr, descr, type_id, super_monument_id, link_id, dating_id)" .
                " VALUES ($placeholders) RETURNING id";
         $statement = $this->connection->prepare($sql);
         $statement->execute($monument);
@@ -77,14 +77,14 @@ class Storage {
     public function getTypeId($type){
         $statement = $this->connection->prepare('Select id from type where name = :type');
         $statement->bindParam(':type', $type, PDO::PARAM_STR);
-        $result = $statement->execute();
+        $statement->execute();
         $rows = $statement->rowCount();
         if ($rows < 1) {
-            $result = NULL;
+            $id = NULL;
         } else {
-            $result = $statement->fetch();
+            $id = $statement->fetch()['id'];
         }
-        return $result['id'];
+        return $id;
     }
     
     /**
@@ -113,19 +113,36 @@ class Storage {
         return $id;
     }
     
-    public function insertDistrict($district, $monumentId){
-        $st_table = $this->connection->prepare('INSERT INTO district (name) VALUES (:name) RETURNING id');
-        $st_table->bindParam(':name', $district, PDO::PARAM_STR);
-        $st_table->execute();
-        $districtId = $st_table->fetch()['id'];
-        $st_rel = $this->connection->prepare('INSERT INTO district_rel (district_id, monument_id) ' .
-                'VALUES (:district_id, :monument_id)');
-        $st_rel->bindParam(':district_id', $districtId, PDO::PARAM_STR);
-        $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
-        return $st_rel->execute();
+    public function getDistrictInRel($districtId, $monumentId){
+        $statement = $this->connection->prepare('Select id from district_rel '
+                . 'where district_id = :district_id AND monument_id = :monument_id ');
+        $statement->bindParam(':district_id', $districtId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id= $statement->fetch()['id'];
+        return $id;
     }
     
-    public function getSubDistrictId($subDistrict){
+    public function insertDistrict($district){
+        $statement = $this->connection->prepare('INSERT INTO district (name) VALUES (:name) RETURNING id');
+        $statement->bindParam(':name', $district, PDO::PARAM_STR);
+        $statement->execute();
+        return $statement->fetch()['id'];
+    }
+    
+    public function insertDistrictInRel($districtId, $monumentId){
+        $statement = $this->connection->prepare('INSERT INTO district_rel (district_id, monument_id) ' .
+                'VALUES (:district_id, :monument_id)');
+        $statement->bindParam(':district_id', $districtId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();   
+    }
+    
+    public function getSubdistrictId($subDistrict){
         $statement = $this->connection->prepare('Select id from sub_district where name = :sub_district');
         $statement->bindParam(':sub_district', $subDistrict, PDO::PARAM_STR);
         $statement->execute();
@@ -137,22 +154,11 @@ class Storage {
         return $id;
     }
     
-    public function insertSubDistrict($subDistrict, $monumentId){
-        $st_table = $this->connection->prepare('INSERT INTO sub_district (name) VALUES (:name) RETURNING id');
-        $st_table->bindParam(':name', $subDistrict, PDO::PARAM_STR);
-        $st_table->execute();
-        $subDistrictId = $st_table->fetch()['id'];
-        $st_rel = $this->connection->prepare('INSERT INTO sub_district_rel (sub_district_id, monument_id) ' .
-                'VALUES (:sub_district_id, :monument_id)');
-        $st_rel->bindParam(':sub_district_id', $subDistrictId, PDO::PARAM_STR);
-        $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
-        return $st_rel->execute();
-    }
-    
-    public function getAddressId($address){
-        $statement = $this->connection->prepare('Select id from address where street = :street AND nr = :nr');
-        $statement->bindParam(':street', $address['street'], PDO::PARAM_STR);
-        $statement->bindParam(':nr', $address['nr'][0], PDO::PARAM_STR);
+    public function getSubdistrictInRel($subdistrictId, $monumentId){
+        $statement = $this->connection->prepare('Select id from sub_district_rel '
+                . 'where sub_district_id = :sub_district_id AND monument_id = :monument_id ');
+        $statement->bindParam(':sub_district_id', $subdistrictId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
         $statement->execute();
         $rows = $statement->rowCount();
         if ($rows < 1)
@@ -162,12 +168,63 @@ class Storage {
         return $id;
     }
     
+    public function insertSubdistrict($subdistrict){
+        $statement = $this->connection->prepare('INSERT INTO sub_district (name) VALUES (:name) RETURNING id');
+        $statement->bindParam(':name', $subdistrict, PDO::PARAM_STR);
+        $statement->execute();
+        return $statement->fetch()['id'];
+        
+    }
+    
+    public function insertSubdistrictInRel($subdistrictId, $monumentId){
+        $statement = $this->connection->prepare('INSERT INTO sub_district_rel (sub_district_id, monument_id) ' .
+                'VALUES (:sub_district_id, :monument_id)');
+        $statement->bindParam(':sub_district_id', $subdistrictId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
+    }
+    
+    public function getAddressId($address){
+        $statement = $this->connection->prepare('Select id from address where street = :street AND nr = :nr');
+        $statement->bindParam(':street', $address['street'], PDO::PARAM_STR);
+        $statement->bindParam(':nr', $address['nr'], PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function getAddressInRel($addressId, $monumentId){
+        $statement = $this->connection->prepare('Select id from address_rel where monument_id = :monument_id AND address_id = :address_id');
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->bindParam(':address_id', $addressId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
     public function insertAddress($address){
         $placeholders = implode(',', array_fill(0, count($address), '?'));
-        $sql = "INSERT INTO address (lat, long, street, nr, monument_id)" .
-               " VALUES ($placeholders)";
+        $sql = "INSERT INTO address (lat, long, street, nr)" .
+               " VALUES ($placeholders) RETURNING id";
         $statement = $this->connection->prepare($sql);
-        return $statement->execute($address);
+        $statement->execute($address);
+        return $statement->fetch()['id'];
+    }
+    
+    public function insertAddressInRel($addressId, $monumentId){
+        $statement = $this->connection->prepare('INSERT INTO address_rel (monument_id, address_id) ' .
+                'VALUES (:monument_id, :address_id)');
+        $statement->bindParam(':address_id', $addressId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
     }
     
     public function getMonumentNotionId($monumentNotion){
@@ -182,16 +239,33 @@ class Storage {
         return $id;
     }
     
-    public function insertMonumentNotion($monumentNotion, $monumentId){
-        $st_table = $this->connection->prepare('INSERT INTO monument_notion (name) VALUES (:name) RETURNING id');
-        $st_table->bindParam(':name', $monumentNotion, PDO::PARAM_STR);
-        $st_table->execute();
-        $monumentNotionId = $st_table->fetch()['id'];
-        $st_rel = $this->connection->prepare('INSERT INTO monument_notion_rel (monument_notion_id, monument_id) ' .
+    public function getMonumentNotionInRel($monumentNotionId, $monumentId){
+        $statement = $this->connection->prepare('Select id from monument_notion_rel where '
+                . 'monument_notion_id = :monument_notion_id AND monument_id = :monument_id');
+        $statement->bindParam(':monument_notion_id', $monumentNotionId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function insertMonumentNotion($monumentNotion){
+        $statement = $this->connection->prepare('INSERT INTO monument_notion (name) VALUES (:name) RETURNING id');
+        $statement->bindParam(':name', $monumentNotion, PDO::PARAM_STR);
+        $statement->execute();
+        return $statement->fetch()['id'];
+    }
+    
+    public function insertMonumentNotionInRel($monumentNotionId, $monumentId){
+        $statement = $this->connection->prepare('INSERT INTO monument_notion_rel (monument_notion_id, monument_id) ' .
                 'VALUES (:monument_notion_id, :monument_id)');
-        $st_rel->bindParam(':monument_notion_id', $monumentNotionId, PDO::PARAM_STR);
-        $st_rel->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
-        return $st_rel->execute();
+        $statement->bindParam(':monument_notion_id', $monumentNotionId, PDO::PARAM_STR);
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
     }
     
     public function getPictureUrlId($picture){
@@ -213,10 +287,10 @@ class Storage {
         return $statement->execute();
     }
     
-    public function getDatingId($date){
+    public function getDatingId($beginning, $ending){
         $statement = $this->connection->prepare('Select id from dating where beginning = :beginning AND ending = :ending');
-        $statement->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
-        $statement->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
+        $statement->bindParam(':beginning', $beginning, PDO::PARAM_STR);
+        $statement->bindParam(':ending', $ending, PDO::PARAM_STR);
         $statement->execute();
         $rows = $statement->rowCount();
         if ($rows < 1)
@@ -226,17 +300,13 @@ class Storage {
         return $id;
     }
     
-    public function insertDating($date, $monumentId){
-        $statement = $this->connection->prepare('INSERT INTO dating (beginning, ending, monument_id) '
-                . 'VALUES (:beginning, :ending, :monument_id)');
-        $statement->bindParam(':beginning', $date['beginning'], PDO::PARAM_STR);
-        $statement->bindParam(':ending', $date['ending'], PDO::PARAM_STR);
-        if(!isset($date['beginning']))
-            $date['beginning'] = NULL;
-        if(!isset($date['ending']))
-             $date['ending'] = NULL;
-        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
-        return $statement->execute();
+    public function insertDating($beginning, $ending){
+        $statement = $this->connection->prepare('INSERT INTO dating (beginning, ending) '
+                . 'VALUES (:beginning, :ending) RETURNING id');
+        $statement->bindParam(':beginning', $beginning);
+        $statement->bindParam(':ending', $ending);
+        $statement->execute();
+        return $statement->fetch()['id'];
     }
     
     public function getParticipantId($participant){
