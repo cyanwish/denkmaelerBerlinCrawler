@@ -1,8 +1,10 @@
 <?php
 
-require 'storage.php'; 
-require 'logging.php';
-require 'crawler.php';
+require_once 'storage.php'; 
+require_once 'logging.php';
+require_once 'crawler.php';
+require_once 'dbImporter.php';
+require_once 'config.php';
 
 /**
  *  /// The main file /// 
@@ -11,25 +13,25 @@ require 'crawler.php';
 /////////start setup/////////////
 $crawler = new Crawler();
 $objectIds = $crawler->fetchObjectIds("denkmalliste.txt", '/090[0-9]{5}/');
-$storage = new Storage();
+$dbImporter = new dbImporter();
 //libxml error handling
 libxml_use_internal_errors(true);
 /////////finish setup/////////////
 
-$objectId = "09075277";
-$object = crawlObject($crawler, $storage, $objectId);
-//crawlAllObjects($crawler, $storage, $objectIds);
+//$objectId = '09011386';
+//$object = crawlObject($crawler, $objectId);
+//var_dump($object);
+crawlAllObjects($crawler, $dbImporter, $objectIds);
 
-var_dump($object);
 
 ///////functions///////
-function crawlObject($crawler, $storage, $objectId){
+function crawlObject($crawler, $objectId){
     $detailLink = $crawler->getDetailLink($objectId);
     $object = $crawler->getObjectData($detailLink);
     return $object;
 }
 
-function crawlAllObjects($crawler, $storage, $objectIds){
+function crawlAllObjects($crawler, $importer, $objectIds){
     
     $log = new Logging();
     $log->lfile('denkmaeler_log.txt'); 
@@ -37,18 +39,18 @@ function crawlAllObjects($crawler, $storage, $objectIds){
     $length = count($objectIds);
 
     // get the detaillink & object details for each objectid & save them to the db
-    for ($i = 5000; $i < $length; $i++) { // 68,73
+    for ($i = 0; $i < $length; $i++) { // 68,73
         $detailLink = $crawler->getDetailLink($objectIds[$i]);
         if ($detailLink == NULL) {
-            $log->lwrite($objectIds[$i] . 'Crawler Error. Unable to get the detail-link.');
-            sleep(1);
+            $log->lwrite($objectIds[$i] . ' Crawler Error. Unable to get the detail-link.');
         } else {
             $object = $crawler->getObjectData($detailLink);
             if ($object == NULL) {
-                $log->lwrite($objectIds[$i] . 'Crawler Error. Unable to get the object.');
-                sleep(1);
+                $log->lwrite($objectIds[$i] . ' Crawler Error. Unable to get the object.');
             } else {
-                //$result = $storage->saveObject($object);
+                $object['obj_nr'] = $objectIds[$i];
+                $importer->setData($object);
+                $importer->writeData();
                 $keys = array_keys($object);
                 for ($x = 0; $x < count($keys); $x++){
                     if( $keys[$x] != 'obj_nr' &&
@@ -65,13 +67,12 @@ function crawlAllObjects($crawler, $storage, $objectIds){
                         $keys[$x] != 'monument_notion' &&
                         $keys[$x] != 'date' &&
                         $keys[$x] != 'street') {
-                        echo 'neuer Key:' . $keys[$x] . "\n"; //Just to find new structures
+                        echo "\n neuer Key:" . $keys[$x] . "\n"; //Just to find new structures
                     }
                 }
+                //var_dump($object);
                 //progress-output
-                //echo  "||| " . round(($i / $length * 100), 2) . "% |||" . $object['obj_nr'] . " " . $object['name'] . "\n";
-                echo '|' . $object['date'];
-                sleep(1);
+                echo  "||| " . round(($i / $length * 100), 2) . "% |||" . $object['obj_nr'] . " " . $object['name'] . "\n";
             }
         } 
     }
