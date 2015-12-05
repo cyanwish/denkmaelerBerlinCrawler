@@ -52,14 +52,19 @@ class dbImporter{
     public function writeData(){
         if(isset($this->data)){
             $this->writeType();
-            $this->writeMonument();
-            $this->writeDistrict();
-            $this->writeSubDistrict();
-            $this->writeAddress();
-            $this->writePictureUrl();
-            $this->writeMonumentNotion();
-            $this->writeDating();
-            $this->writeParticipant();
+            if(isset($this->data['type_id'])){
+                $this->writeDating();
+                $this->writeMonument();
+                if(isset($this->data['id'])){
+                    $this->writeDistrict();
+                    $this->writeSubDistrict();
+                    $this->writeAddress();
+                    $this->writePictureUrl();
+                    $this->writeMonumentNotion();
+                    $this->writeParticipant();
+                } else
+                    echo '||| ' .$this->data['obj_nr'] . ' already written. ';
+            } 
         } else {
             $this->log->lwrite($this->data['obj_nr'] . " --- missing monument-data.\n");
         }
@@ -71,10 +76,12 @@ class dbImporter{
     // Missing super-monument id & link id
     private function writeMonument(){
         if($this->storage->getMonument($this->data['obj_nr']) == NULL) {
-            $this->data['id'] = $this->storage->insertMonument(array($this->data['name'], $this->data['obj_nr'], $this->data['descr'], $this->data['type_id'], NULL, NULL));
-        } else {
-            $this->data['id'] = $this->storage->getMonument($this->data['obj_nr']);
-        } 
+            if(!isset($this->data['descr']))
+                $this->data['descr'] = NULL;
+            if(!isset($this->data['dating_id']))
+                $this->data['dating_id'] = NULL;
+            $this->data['id'] = $this->storage->insertMonument(array($this->data['name'], $this->data['obj_nr'], $this->data['descr'], $this->data['type_id'], NULL, NULL, $this->data['dating_id']));
+        } else {}   //update 
     }
     
     /**
@@ -83,11 +90,12 @@ class dbImporter{
      */
     
     private function writeType(){
-        if($this->storage->getTypeId($this->data['type']) == NULL){
-            $this->data['type_id'] = $this->storage->insertType($this->data['type']);
-        } else {
+        if(isset($this->data['type'])){
             $this->data['type_id'] = $this->storage->getTypeId($this->data['type']);
-        }
+            if($this->data['type_id'] == NULL)
+                $this->data['type_id'] = $this->storage->insertType($this->data['type']);
+        } else
+            $this->data['type_id'] = NULL;
     }
     
     /**
@@ -95,16 +103,22 @@ class dbImporter{
      */
     // Missing lat/long
     private function writeAddress(){
-        if(isset($this->data['street']) && isset($this->data['obj_nr'])){
-            if($this->storage->getAddressId(array('street' => $this->data['street'], 'nr' => $this->data['nr'])) == NULL){
+        if(!isset($this->data['nr'][0]))
+            $this->data['nr'][0] = NULL;
+        if(isset($this->data['street'])){
+            $addressId = $this->storage->getAddressId(array('street' => $this->data['street'], 'nr' => $this->data['nr'][0]));
+            if($addressId == NULL){
                 if(isset($this->data['nr'][0])){
-                    $this->storage->insertAddress(array(NULL, NULL, $this->data['street'], $this->data['nr'][0], $this->data['id']));
+                    $addressId = $this->storage->insertAddress(array(NULL, NULL, $this->data['street'], $this->data['nr'][0]));
+                    $this->storage->insertAddressInRel($addressId, $this->data['id']);
                 } else {
-                    $this->storage->insertAddress(array(NULL, NULL, $this->data['street'], NULL, $this->data['id']));
+                    $addressId = $this->storage->insertAddress(array(NULL, NULL, $this->data['street'], NULL));
+                    $this->storage->insertAddressInRel($addressId, $this->data['id']);
                 }
-            } else {
-                //UPDATE address
             }
+            if($this->storage->getAddressInRel($addressId, $this->data['id']) == NULL){
+                $this->storage->insertAddressInRel($addressId, $this->data['id']);
+            } else {} // update
         } else {
             $this->log->lwrite($this->data['obj_nr'] . " --- missing address\n");
         }
@@ -113,11 +127,14 @@ class dbImporter{
     private function writeDistrict(){
         if(isset($this->data['district'])){
             foreach($this->data['district'] as $district){
-                if($this->storage->getDistrictId($district) == NULL){
-                    $this->storage->insertDistrict($district, $this->data['id']);
-                } else {
-                    // UPDATE district
+                $districtId = $this->storage->getDistrictId($district);
+                if($districtId == NULL){
+                    $districtId = $this->storage->insertDistrict($district);
+                    $this->storage->insertDistrictInRel($districtId, $this->data['id']);
                 }
+                if($this->storage->getDistrictInRel($districtId, $this->data['id']) == NULL){
+                    $this->storage->insertDistrictInRel($districtId, $this->data['id']);
+                } else {} // Update 
             }
         } else {
             $this->log->lwrite($this->data['obj_nr'] . " --- missing district(s)\n");
@@ -125,28 +142,35 @@ class dbImporter{
         
     }
     
-    private function writeSubDistrict(){
+    private function writeSubdistrict(){
         if(isset($this->data['sub_district'])){
-            foreach($this->data['sub_district'] as $sub_district){
-                if($this->storage->getSubDistrictId($sub_district) == NULL){
-                    $this->storage->insertSubDistrict($sub_district, $this->data['id']);
-                } else {
-                //UPDATE sub_district
+            foreach($this->data['sub_district'] as $subdistrict){
+                $subdistrictId = $this->storage->getSubdistrictId($subdistrict); 
+                if($subdistrictId == NULL){
+                    $subdistrictId = $this->storage->insertSubdistrict($subdistrict);
+                    $this->storage->insertSubDistrictInRel($subdistrictId, $this->data['id']);
                 }
+                if($this->storage->getSubdistrictInRel($subdistrictId, $this->data['id']) == NULL){
+                    $this->storage->insertSubdistrictInRel($subdistrictId, $this->data['id']);
+                } else {} // Update 
             }
         } else {
-            $this->log->lwrite($this->data['obj_nr'] . " --- missing subdistrict(s)\n");
-        }  
+            $this->log->lwrite($this->data['obj_nr'] . " --- missing district(s)\n");
+        }
+        
     }
     
     private function writeMonumentNotion(){
         if(isset($this->data['monument_notion'])){
             foreach($this->data['monument_notion'] as $monumentNotion){
-                if($this->storage->getMonumentNotionId($monumentNotion) == NULL){
-                    $this->storage->insertMonumentNotion($monumentNotion, $this->data['id']);
-                } else {
-                    // UPDATE monument_notion
+                $monumentNotionId = $this->storage->getMonumentNotionId($monumentNotion);
+                if($monumentNotionId == NULL){
+                    $monumentNotionId = $this->storage->insertMonumentNotion($monumentNotion);
+                    $this->storage->insertMonumentNotionInRel($monumentNotionId, $this->data['id']);
                 }
+                if($this->storage->getMonumentNotionInRel($monumentNotionId, $this->data['id']) == NULL){
+                    $this->storage->insertMonumentNotionInRel($monumentNotionId, $this->data['id']);
+                } else {} // Update
             }
         } else {
              $this->log->lwrite($this->data['obj_nr'] . " --- missing monument_notion\n");
@@ -156,23 +180,27 @@ class dbImporter{
     private function writePictureUrl(){
         if(isset($this->data['picture'])){
             foreach($this->data['picture'] as $picture){
-                if($this->storage->getPictureUrlId($picture) == NULL){
-                    $this->storage->insertPictureUrl($picture, $this->data['id']);
-                } else {
-                    // UPDATE picture ulr
-                }
-            } 
-        } // nothing, not every picture has an url
+               $this->storage->insertPictureUrl($picture, $this->data['id']);
+            }
+        } // nothing, not every monument has a picture
     }
     
     private function writeDating(){
         if(isset($this->data['date'])){
-            if($this->storage->getDatingId($this->data['date']) == NULL){
-                $this->storage->insertDating($this->data['date'], $this->data['id']);
-            } else {
-                // UPDATE DATING
-            }
+            if(!isset($this->data['date']['beginning']))
+                $this->data['date']['beginning'] = NULL;
+            else
+                $this->data['date']['beginning'] .= '-01-01';
+            if(!isset($this->data['date']['ending']))
+                $this->data['date']['ending'] = NULL;
+            else
+                $this->data['date']['ending'] .= '-01-01';
+            $this->data['dating_id'] = $this->storage->getDatingId($this->data['date']['beginning'], $this->data['date']['ending']);
+            if($this->data['dating_id'] == NULL){
+                $this->data['dating_id'] = $this->storage->insertDating($this->data['date']['beginning'], $this->data['date']['ending']);
+            }   
         } else {
+            $this->data['dating_id'] = NULL;
             $this->log->lwrite($this->data['obj_nr'] . " --- missing monument dating\n");
         }
     }
