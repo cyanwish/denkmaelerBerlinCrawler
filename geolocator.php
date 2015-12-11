@@ -34,19 +34,22 @@ class Geolocator {
         if (!empty($result) && !empty($result[0]['lat']) && !empty($result[0]['lon'])) {
             //writeResults($data, $result[0]['lat'], $result[0]['lon']);
             //TODO: Insert into db.
+            $coordinates['lat'] = $result[0]['lat'];
+            $coordinates['lon'] = $result[0]['lon'];
         } else {
-                // TODO: Error handling
-                //writeResults($data,'n.a.', 'n.a.');
+            // TODO: Error handling
+            //writeResults($data,'n.a.', 'n.a.');
+            $coordinates = NULL;
         }
-        
+        return $coordinates;
     }
  
     private function lookUp($data) {
         $streetName = $this->parseQuery($data[1]);
         $houseNumber = $this->parseQuery($data[2]);
-        $district = parseQuery($data[3]);
+        $district = $this->parseQuery($data[3]);
         $this->nomiPlzSearchUrl = 'http://nominatim.openstreetmap.org/search.php?q=' . $streetName . '+' . $houseNumber . '%2C+Berlin%2C+'. $district . '&format=json&adressdetails=1';
-        $nomiResult = file_get_contents($nomiPlzSearchUrl);
+        $nomiResult = file_get_contents($this->nomiPlzSearchUrl);
         $nomiResultArray = json_decode($nomiResult, true);
         return $nomiResultArray;
     }
