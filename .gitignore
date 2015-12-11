@@ -13,3 +13,7 @@ nbproject/project.xml
 dbnormalizerError.txt
 
 dbImporterError.txt
+
+geolocator_log.txt
+
+*.txt
