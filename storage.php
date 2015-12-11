@@ -17,7 +17,7 @@ class Storage {
     public function __construct(){
       // insert your own credentials here
       $db_host = 'db.f4.htw-berlin.de';
-      $db_name = '_s0544759__dmb';
+      $db_name = '_s0544759__dmb_test';
       $db_user = getUser();
       $db_pass = getPw();
       try{
@@ -64,15 +64,15 @@ class Storage {
         return $id;
     }
     
-    public function getMonument($obj_nr){
-        $statement = $this->connection->prepare('SELECT * FROM monument WHERE obj_nr = :obj_nr');
-        $statement->bindParam(':obj_nr', $obj_nr, PDO::PARAM_STR);
+    public function getMonument($id){
+        $statement = $this->connection->prepare('SELECT * FROM monument WHERE id = :id');
+        $statement->bindParam(':id', $id, PDO::PARAM_STR);
         $statement->execute();
         $rows = $statement->rowCount();
         if ($rows < 1)
             $result = NULL;
         else
-            $result = $statement->fetchAll();
+            $result = $statement->fetch();
         return $result;
     }
     
@@ -144,7 +144,7 @@ class Storage {
         if ($rows < 1)
             $result = NULL;
         else
-            $result = $statement->fetchAll();
+            $result = $statement->fetch();
         return $result;
     }
     
@@ -171,7 +171,7 @@ class Storage {
         if ($rows < 1)
             $id = NULL;
         else
-            $id= $statement->fetchAll();
+            $id = $statement->fetchAll();
         return $id;
     }
     
@@ -264,7 +264,7 @@ class Storage {
         if ($rows < 1)
             $result = NULL;
         else
-            $result = $statement->fetchAll();
+            $result = $statement->fetch();
         return $result;
     }
     
@@ -278,6 +278,19 @@ class Storage {
             $id = NULL;
         else
             $id = $statement->fetch()['id'];
+        return $id;
+    }
+    
+    public function getAddressIdsFromMonument($monumentId){
+        $statement = $this->connection->prepare('Select address_id from address_rel '
+                . 'where monument_id = :monument_id ');
+        $statement->bindParam(':monument_id', $monumentId, PDO::PARAM_STR);
+        $statement->execute();
+        $rows = $statement->rowCount();
+        if ($rows < 1)
+            $id = NULL;
+        else
+            $id = $statement->fetchAll();
         return $id;
     }
     
