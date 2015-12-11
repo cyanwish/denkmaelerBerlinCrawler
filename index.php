@@ -5,6 +5,7 @@ require_once 'logging.php';
 require_once 'crawler.php';
 require_once 'dbImporter.php';
 require_once 'config.php';
+require_once 'geolocator.php';
 
 /**
  *  /// The main file /// 
@@ -12,7 +13,8 @@ require_once 'config.php';
 
 /////////start setup/////////////
 $crawler = new Crawler();
-$objectIds = $crawler->fetchObjectIds("denkmalliste.txt", '/090[0-9]{5}/');
+$storage = new Storage();
+//$objectIds = $crawler->fetchObjectIds("missing_objects.txt", '/090[0-9]{5}/');
 $dbImporter = new dbImporter();
 //libxml error handling
 libxml_use_internal_errors(true);
@@ -21,7 +23,10 @@ libxml_use_internal_errors(true);
 //$objectId = '09011386';
 //$object = crawlObject($crawler, $objectId);
 //var_dump($object);
-crawlAllObjects($crawler, $dbImporter, $objectIds);
+//crawlAllObjects($crawler, $dbImporter, $objectIds);
+//var_dump(count($objectIds));
+//checkForExistingMonuments($objectIds, $storage);
+geolocateAddresses($storage);
 
 
 ///////functions///////
@@ -39,13 +44,15 @@ function crawlAllObjects($crawler, $importer, $objectIds){
     $length = count($objectIds);
 
     // get the detaillink & object details for each objectid & save them to the db
-    for ($i = 0; $i < $length; $i++) { // 68,73
+    for ($i = 0; $i < $length; $i++){
         $detailLink = $crawler->getDetailLink($objectIds[$i]);
         if ($detailLink == NULL) {
+            echo "LINK DEAD\n";
             $log->lwrite($objectIds[$i] . ' Crawler Error. Unable to get the detail-link.');
         } else {
             $object = $crawler->getObjectData($detailLink);
             if ($object == NULL) {
+                 echo "OBJECT DEAD\n";
                 $log->lwrite($objectIds[$i] . ' Crawler Error. Unable to get the object.');
             } else {
                 $object['obj_nr'] = $objectIds[$i];
@@ -62,6 +69,8 @@ function crawlAllObjects($crawler, $importer, $objectIds){
                         $keys[$x] != 'p_concept' &&     
                         $keys[$x] != 'p_builder' &&
                         $keys[$x] != 'p_exec' &&
+                        $keys[$x] != 'completion' &&
+                        $keys[$x] != 'build_start' &&
                         $keys[$x] != 'nr' &&
                         $keys[$x] != 'type' &&
                         $keys[$x] != 'monument_notion' &&
@@ -77,4 +86,51 @@ function crawlAllObjects($crawler, $importer, $objectIds){
         } 
     }
     $log->lclose();   
+}
+
+function geolocateAddresses($storage){
+    $log = new Logging();
+    $log->lfile('geolocator_log.txt'); 
+    $geoloc = new Geolocator();
+    $result = $storage->getAllMonumentIds();
+    $length = count($result);
+    for ($i = 0; $i < $length; $i++){
+        $objectIds[] = $result[$i]['id'];
+    }
+    for ($i = 0; $i < $length; $i++) {
+        $monument = $storage->getMonument($objectIds[$i]);
+        $addressId = $storage->getAddressIdsFromMonument($monument['id'])[0]['address_id'];
+        if($addressId != NULL){
+            $districtId = $storage->getDistrictIdsFromMonument($monument['id'])[0]['district_id'];
+            if($districtId != NULL){
+                $district = $storage->getDistrict($districtId)['name'];
+                $address = $storage->getAddress($addressId);
+                $coordinates = $geoloc->getCoordinates(array($address['id'], $address['street'], $address['nr'], $district));
+                if($coordinates != NULL && $address['lat'] == NULL && $address['long'] == NULL){
+                    $storage->updateCoordinatesOfAddress($address['id'], $coordinates['lat'], $coordinates['lon']);
+                } else {
+                    $log->lwrite($objectIds[$i] . ' Geolocator Error. Coordinates invalid.');
+                }
+            } else {
+                $log->lwrite($objectIds[$i] . ' Monument Error. No District-id.'); 
+            }
+        } else {
+            $log->lwrite($objectIds[$i] . ' Monument Error. No Dating-id.');    
+        }
+    }
+}
+
+function checkForExistingMonuments($objectIds, $storage){
+    $log = new Logging();
+    $log->lfile('missing_objects.txt'); 
+    $missing = array();
+    foreach($objectIds as $object){
+        $result = $storage->getMonumentId($object);
+        if($result == NULL){
+            $missing[] = $object;
+            $log->lwrite($object);
+        }
+        
+    }
+    
 }
