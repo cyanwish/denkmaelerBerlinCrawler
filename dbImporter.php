@@ -120,6 +120,7 @@ class dbImporter{
                 $this->storage->insertAddressInRel($addressId, $this->data['id']);
             } else {} // update
         } else {
+            echo $this->data['obj_nr'] . " --- missing address\n";
             $this->log->lwrite($this->data['obj_nr'] . " --- missing address\n");
         }
     }
