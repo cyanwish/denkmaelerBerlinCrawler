@@ -55,6 +55,55 @@ class Crawler {
     }
     
     /**
+     *  The function opens the given file, reads it line by line and checks for
+     *  ensembles and their part-ensembles.
+     *  
+     * @param    $filename   string representation of the filename (including ending)
+     * 
+     * @return               array with ensemble -> ensemble-part
+     */
+    
+    public function fetchEnsembleParts($filename) {
+        
+        $file = fopen($filename, "r") or die("Unable to open file!");
+        $data = array();
+        $pattern1 = '/090[0-9]{5}/';
+        $pattern2 = '/Weitere Bestandteile des Ensembles/';
+        $pattern3 = '/\n/';
+        $i = 0;
+        $j = "";
+        $matches = array();
+        $newParts = false;
+        while(!feof($file)) {
+            $line = fgets($file);
+            
+            preg_match($pattern1, $line, $matches);
+            if (@$matches[0] != NULL){
+                if($newParts){
+                    $data[$j][] = $matches[0];
+                }
+                if(!$newParts){
+                    //$data[$i++] = $matches[0];
+                    $j = $matches[0];
+                    //$data[$matches[0]] = array();
+                }
+            } else {
+                preg_match($pattern2, $line, $matches);    
+                if(@$matches[0] != NULL) {
+                    $newParts = true;
+                } else {
+                    preg_match($pattern3, $line, $matches);    
+                    if(@$matches[0] != NULL) {
+                        $newParts = false;
+                    }
+                }
+            }
+        }
+        fclose($file);
+        return $data;
+    }
+    
+    /**
      *  The function crawls for the link of the detailed page of the given
      *  object-id.
      *  
@@ -142,20 +191,21 @@ class Crawler {
         $firstNr = TRUE;
         for ($j = 0; $j < $head_trs->length; $j++){
             $td = $head_trs->item($j)->getElementsByTagName('td');  
-            if($td->item(0)->nodeValue == 'Adresse'){
+            if($td->item(0)->nodeValue == 'Strasse:'){
                 if($firstAdr == TRUE){
                     $firstAdr = FALSE;
                     $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                     $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
                 } // else nothing because we only take the first adress
             }
-            if($td->item(0)->nodeValue == 'Hausnummer'){
+            if($td->item(0)->nodeValue == 'Hausnummer:'){
                 if($firstNr == TRUE){
                     $firstNr = FALSE;
                     $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                     $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
                 } // else nothing because we only take the first housenr
-            } else { // every other data besides "address"
+            }
+            if($td->item(0)->nodeValue != 'Hausnummer:' && $td->item(0)->nodeValue != 'Strasse:'){ // every other data besides "address"
                 $tag = filter_var(trim(str_replace(":", "", $td->item(0)->nodeValue)), FILTER_SANITIZE_STRING);
                 $data[$tag] = filter_var(trim($td->item(1)->nodeValue), FILTER_SANITIZE_STRING);
             }
