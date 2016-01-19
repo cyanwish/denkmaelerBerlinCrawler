@@ -1,16 +1,19 @@
 <?php
 
 
+include_once 'downloader.php';
+
 class Geolocator {
 
-    private $nomiPlzSearchUrl; 
+    private $nomiPlzSearchUrl;
+    private $downloader;
     
     /**
      *  The constructor of the class.
      */
     
     public function __construct() {
-        
+        $this->downloader = new Downloader();
     }
     
     /**
@@ -18,7 +21,7 @@ class Geolocator {
      */
     
     public function __destruct() {
-       
+        $this->downloader = null;
     }
     
     /**
@@ -49,7 +52,8 @@ class Geolocator {
         $houseNumber = $this->parseQuery($data[2]);
         $district = $this->parseQuery($data[3]);
         $this->nomiPlzSearchUrl = 'http://nominatim.openstreetmap.org/search.php?q=' . $streetName . '+' . $houseNumber . '%2C+Berlin%2C+'. $district . '&format=json&adressdetails=1';
-        $nomiResult = file_get_contents($this->nomiPlzSearchUrl);
+        //$nomiResult = file_get_contents($this->nomiPlzSearchUrl);
+        $nomiResult = $this->downloader->download($this->nomiPlzSearchUrl);
         $nomiResultArray = json_decode($nomiResult, true);
         return $nomiResultArray;
     }
