@@ -17,7 +17,7 @@ class Storage {
     public function __construct(){
       // insert your own credentials here
       $db_host = 'db.f4.htw-berlin.de';
-      $db_name = '_s0544759__dmb_test';
+      $db_name = '_s0544759__dmb_dev';
       $db_user = getUser();
       $db_pass = getPw();
       try{
@@ -89,6 +89,13 @@ class Storage {
         $statement = $this->connection->prepare($sql);
         $statement->execute($monument);
         return $statement->fetch()['id'];
+    }
+    
+    public function updateSuperMonumentFromMonument($monumentId, $superMonumentId){
+        $statement = $this->connection->prepare('UPDATE monument SET super_monument_id = :sup_id WHERE id = :id');
+        $statement->bindParam(':sup_id', $superMonumentId, PDO::PARAM_STR);
+        $statement->bindParam(':id', $monumentId, PDO::PARAM_STR);
+        return $statement->execute();
     }
     
     /**
